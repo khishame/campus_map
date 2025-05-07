@@ -1,4 +1,4 @@
-mapboxgl.accessToken = 'pk.eyJ1Ijoia2hpc2hhIiwiYSI6ImNtOWdvb3o2eDE1cHMybnNhM3BwYXYzYzQifQ.J1It4AHUyB1NGANTKikThw'; 
+mapboxgl.accessToken = 'pk.eyJ1Ijoia2hpc2hhIiwiYSI6ImNtOWdvb3o2eDE1cHMybnNhM3BwYXYzYzQifQ.J1It4AHUyB1NGANTKikThw';
 
 const map = new mapboxgl.Map({
     container: 'map',
@@ -7,7 +7,7 @@ const map = new mapboxgl.Map({
     center: [28.096165, -25.540288]
 });
 
-// === GEOCODER (used only for visual box, not data) ===
+// === GEOCODER ===
 const geocoder = new MapboxGeocoder({
     accessToken: mapboxgl.accessToken,
     marker: false,
@@ -15,28 +15,42 @@ const geocoder = new MapboxGeocoder({
 });
 map.addControl(geocoder, 'top-left');
 
-// === NAVIGATION & DIRECTIONS ===
+// === NAVIGATION CONTROLS ===
 map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-const directions = new MapboxDirections({ accessToken: mapboxgl.accessToken });
 
-// === GPS (Geolocation) Control ===
+// === GEOLOCATION ===
 map.addControl(
     new mapboxgl.GeolocateControl({
-        positionOptions: {
-            enableHighAccuracy: true
-        },
+        positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
         showUserHeading: true
     }),
     'bottom-right'
 );
 
+// === DIRECTIONS WITH CAMPUS BOUNDARY BBOX ===
+const directions = new MapboxDirections({
+    accessToken: mapboxgl.accessToken,
+    unit: 'metric',
+    profile: 'mapbox/walking',
+    bbox: [28.091, -25.543, 28.101, -25.537]  // restrict search within campus
+});
+
+// === Set origin to user's location when available ===
+map.on('geolocate', function (e) {
+    const userCoordinates = [e.coords.longitude, e.coords.latitude];
+    directions.setOrigin(userCoordinates);
+});
+
+// === RESET DIRECTION FUNCTION ===
 function direction_reset() {
     directions.actions.clearOrigin();
     directions.actions.clearDestination();
-    directions.container.querySelector('input').value = '';
+    const input = directions.container.querySelector('input');
+    if (input) input.value = '';
 }
 
+// === jQuery Click Events for Directions ===
 $(function () {
     $('#get-direction').click(function () {
         map.addControl(directions, 'top-left');
@@ -45,17 +59,40 @@ $(function () {
         $(this).hide();
         $('#end-direction').removeClass('d-none');
         $('.marker').remove();
+
+        // Request GPS and set origin
+        navigator.geolocation.getCurrentPosition(function (position) {
+            const userCoordinates = [position.coords.longitude, position.coords.latitude];
+            directions.setOrigin(userCoordinates);
+        }, function (error) {
+            alert("Unable to retrieve your location for directions. Please enable GPS.");
+            console.error(error);
+        });
     });
+
     $('#end-direction').click(function () {
         direction_reset();
         $(this).addClass('d-none');
         $('#get-direction').show();
         $(geocoder.container).show();
-        map.removeControl(directions);
+    
+        // Remove directions from the map
+        if (map.hasControl(directions)) {
+            map.removeControl(directions);
+        }
+    
+        // Re-enable search suggestions and popups
+        markers.forEach(marker => marker.remove());
+        popups.forEach(popup => popup.remove());
+        markers = [];
+        popups = [];
+    
+        // Allow campus features to be clicked again (already handled globally by map.on('click'))
     });
+    
 });
 
-// === CUSTOM SEARCH IMPLEMENTATION ===
+// === CUSTOM SEARCH POPUP ===
 let pointFeaturesByName = {};
 let markers = [];
 let popups = [];
@@ -63,7 +100,7 @@ let popups = [];
 map.on('load', function () {
     geocoder.container.setAttribute('id', 'geocoder-search');
 
-    // === Suggestion dropdown setup ===
+    // === Suggestion dropdown ===
     const suggestionBox = document.createElement('ul');
     suggestionBox.id = 'suggestions';
     Object.assign(suggestionBox.style, {
@@ -81,7 +118,7 @@ map.on('load', function () {
     });
     document.querySelector('#geocoder-search').appendChild(suggestionBox);
 
-    // Store all searchable features by lowercase name
+    // Store searchable features
     const features = map.querySourceFeatures('composite', { sourceLayer: 'points' });
     features.forEach(f => {
         const name = f.properties.name?.toLowerCase();
@@ -89,7 +126,6 @@ map.on('load', function () {
     });
 
     const inputField = document.querySelector('#geocoder-search input');
-
     inputField.addEventListener('input', function (e) {
         const input = e.target.value.toLowerCase().trim();
         suggestionBox.innerHTML = '';
@@ -103,10 +139,7 @@ map.on('load', function () {
         matches.forEach(match => {
             const li = document.createElement('li');
             li.textContent = pointFeaturesByName[match].properties.name;
-            Object.assign(li.style, {
-                padding: '5px',
-                cursor: 'pointer'
-            });
+            Object.assign(li.style, { padding: '5px', cursor: 'pointer' });
             li.addEventListener('click', () => {
                 showFeaturePopup(match);
                 inputField.value = '';
@@ -143,7 +176,7 @@ map.on('load', function () {
         else if (name === 'Public Parking Area') imagePath = '/Parking.jpg';
         else if (name === 'Bus Terminal') imagePath = '/20250505_154750.jpg';
 
-        // === CLEAR EXISTING MARKERS AND POPUPS ===
+        // Clear previous markers/popups
         markers.forEach(marker => marker.remove());
         popups.forEach(popup => popup.remove());
         markers = [];
@@ -154,25 +187,21 @@ map.on('load', function () {
         const marker = new mapboxgl.Marker($('<div class="marker"><i class="fa fa-map-marker-alt"></i></div>')[0])
             .setLngLat(coordinates)
             .setPopup(
-                new mapboxgl.Popup({ offset: 25 })
-                    .setHTML(`
-                        <h3>${name}</h3>
-                        ${imagePath ? `<p><img src="/Photo${imagePath}" style="max-width: 150px; margin-top: 5px; border-radius: 4px;" /></p>` : ''}
-                        <p>${description}</p>
-                    `)
-            )
-            .addTo(map);
+                new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                    <h3>${name}</h3>
+                    ${imagePath ? `<p><img src="/Photo${imagePath}" style="max-width: 150px; margin-top: 5px; border-radius: 4px;" /></p>` : ''}
+                    <p>${description}</p>
+                `)
+            ).addTo(map);
 
         markers.push(marker);
         popups.push(marker.getPopup());
     }
 });
 
-// === CLICK TO OPEN POPUP (Original logic) ===
+// === CLICK ON MAP TO OPEN POPUP ===
 map.on('click', (event) => {
-    const features = map.queryRenderedFeatures(event.point, {
-        layers: ['points']
-    });
+    const features = map.queryRenderedFeatures(event.point, { layers: ['points'] });
     if (!features.length) return;
 
     const feature = features[0];
@@ -203,10 +232,9 @@ map.on('click', (event) => {
             <h3>${name}</h3>
             ${imagePath ? `<p><img src="/Photo${imagePath}" style="max-width: 150px; margin-top: 5px; border-radius: 4px;" /></p>` : ''}
             <p>${description}</p>
-        `)
-        .addTo(map);
+        `).addTo(map);
 });
 
-// === CURSOR FEEDBACK ===
+// === MOUSE CURSOR FEEDBACK ===
 map.on('mouseenter', 'points', () => map.getCanvas().style.cursor = 'pointer');
 map.on('mouseleave', 'points', () => map.getCanvas().style.cursor = '');
