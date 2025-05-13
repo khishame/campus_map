@@ -171,10 +171,15 @@ map.on('load', function () {
         else if (name === 'Information Center') imagePath = '/20250505_152917.jpg';
         else if (name === 'Student Adminitration') imagePath = '/20250505_153449.jpg';
         else if (name === 'ICT LAB') imagePath = '/building_10.jpg';
-        else if (name === 'Building 12') imagePath = '/bulding_14.jpg';
+        else if (name === 'Building 14') imagePath = '/bulding_14.jpg';
         else if (name === 'Lecture Parking Area') imagePath = '/Lec_Parking.jpg';
         else if (name === 'Public Parking Area') imagePath = '/Parking.jpg';
         else if (name === 'Bus Terminal') imagePath = '/20250505_154750.jpg';
+        else if (name === 'Pool Side') imagePath = '/20250509_152318.jpg';
+    else if (name === 'W Residence') imagePath = '/20250509_153215.jpg';
+    else if (name === 'NSFAS office') imagePath = '/20250509_154135.jpg';
+    else if (name === 'Reception') imagePath = '/20250506_105640.jpg';
+    else if (name === 'Main Gate') imagePath = '/20250509_153148.jpg';
 
         // Clear previous markers/popups
         markers.forEach(marker => marker.remove());
@@ -221,10 +226,15 @@ map.on('click', (event) => {
     else if (name === 'Information Center') imagePath = '/20250505_152917.jpg';
     else if (name === 'Student Adminitration') imagePath = '/20250505_153449.jpg';
     else if (name === 'ICT LAB') imagePath = '/building_10.jpg';
-    else if (name === 'Building 12') imagePath = '/bulding_14.jpg';
+    else if (name === 'Building 14') imagePath = '/bulding_14.jpg';
     else if (name === 'Lecture Parking Area') imagePath = '/Lec_Parking.jpg';
     else if (name === 'Public Parking Area') imagePath = '/Parking.jpg';
     else if (name === 'Bus Terminal') imagePath = '/20250505_154750.jpg';
+    else if (name === 'Pool Side') imagePath = '/20250509_152318.jpg';
+    else if (name === 'W Residence') imagePath = '/20250509_153215.jpg';
+    else if (name === 'NSFAS office') imagePath = '/20250509_154135.jpg';
+    else if (name === 'Reception') imagePath = '/20250506_105640.jpg';
+    else if (name === 'Main Gate') imagePath = '/20250509_153148.jpg';
 
     new mapboxgl.Popup({ offset: [0, -15] })
         .setLngLat(feature.geometry.coordinates)
